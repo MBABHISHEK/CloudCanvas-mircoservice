@@ -1,17 +1,14 @@
-// User authentication simulation
+// Main application script
 let currentUser = null;
 
 // Check if user is logged in on page load
-document.addEventListener("DOMContentLoaded", function () {
-  // Check if user data exists in localStorage
-  const userData = localStorage.getItem("cloudCanvasUser");
-  if (userData) {
-    currentUser = JSON.parse(userData);
+document.addEventListener("DOMContentLoaded", async function () {
+  // Check for existing authentication
+  if (authService.isAuthenticated()) {
+    currentUser = await authService.getCurrentUser();
   }
 
   updateUI();
-
-  // Set up authentication modal
   setupAuthModal();
 });
 
@@ -21,38 +18,34 @@ function updateUI() {
   const heroButtons = document.getElementById("heroButtons");
 
   if (currentUser) {
-    // User is logged in
     navLinks.innerHTML = `
             <a href="/">Home</a>
-            <a href="/pages/gallery.html">Gallery</a>
+            <a href="pages/gallery.html">Gallery</a>
             <span>Welcome, ${currentUser.username}</span>
-            <a href="/pages/dashboard.html">Dashboard</a>
-            <a href="/pages/upload.html">Upload</a>
+            <a href="pages/dashboard.html">Dashboard</a>
+            <a href="pages/upload.html">Upload</a>
             <a href="#" id="logoutLink">Logout</a>
         `;
 
     heroButtons.innerHTML = `
-            <a href="/pages/upload.html" class="btn btn-primary">Upload Image</a>
-            <a href="/pages/dashboard.html" class="btn btn-secondary">My Dashboard</a>
+            <a href="pages/upload.html" class="btn btn-primary">Upload Image</a>
+            <a href="pages/dashboard.html" class="btn btn-secondary">My Dashboard</a>
         `;
 
-    // Add logout event listener
     document.getElementById("logoutLink").addEventListener("click", logout);
   } else {
-    // User is not logged in
     navLinks.innerHTML = `
             <a href="/">Home</a>
-            <a href="/pages/gallery.html">Gallery</a>
+            <a href="pages/gallery.html">Gallery</a>
             <a href="#" id="loginLink">Login</a>
             <a href="#" id="registerLink">Register</a>
         `;
 
     heroButtons.innerHTML = `
             <a href="#" id="getStartedLink" class="btn btn-primary">Get Started</a>
-            <a href="/pages/gallery.html" class="btn btn-secondary">View Gallery</a>
+            <a href="pages/gallery.html" class="btn btn-secondary">View Gallery</a>
         `;
 
-    // Add authentication event listeners
     document
       .getElementById("loginLink")
       .addEventListener("click", showLoginModal);
@@ -64,8 +57,6 @@ function updateUI() {
       .addEventListener("click", showRegisterModal);
   }
 }
-
-// ... rest of the functions remain the same as in the previous version ...
 
 // Setup authentication modal
 function setupAuthModal() {
@@ -117,7 +108,7 @@ function setupAuthModal() {
   });
 
   // Handle form submission
-  authForm.addEventListener("submit", function (event) {
+  authForm.addEventListener("submit", async function (event) {
     event.preventDefault();
 
     const username = document.getElementById("username").value;
@@ -125,7 +116,15 @@ function setupAuthModal() {
 
     if (isLoginMode) {
       // Login logic
-      login(username, password);
+      const result = await authService.login({ username, password });
+      if (result.success) {
+        currentUser = result.user;
+        document.getElementById("authModal").style.display = "none";
+        updateUI();
+        alert("Login successful!");
+      } else {
+        alert("Login failed: " + result.error);
+      }
     } else {
       // Register logic
       const confirmPassword = document.getElementById("confirmPassword").value;
@@ -135,7 +134,15 @@ function setupAuthModal() {
         return;
       }
 
-      register(username, password);
+      const result = await authService.register({ username, password });
+      if (result.success) {
+        currentUser = result.user;
+        document.getElementById("authModal").style.display = "none";
+        updateUI();
+        alert("Registration successful!");
+      } else {
+        alert("Registration failed: " + result.error);
+      }
     }
   });
 }
@@ -184,74 +191,10 @@ function showRegisterModal() {
   authModal.style.display = "flex";
 }
 
-// Login function
-function login(username, password) {
-  // In a real application, this would be an API call to the server
-  // For demo purposes, we'll check against localStorage
-
-  // Get users from localStorage
-  const users = JSON.parse(localStorage.getItem("cloudCanvasUsers") || "[]");
-
-  // Find user with matching credentials
-  const user = users.find(
-    (u) => u.username === username && u.password === password
-  );
-
-  if (user) {
-    // Login successful
-    currentUser = { id: user.id, username: user.username };
-    localStorage.setItem("cloudCanvasUser", JSON.stringify(currentUser));
-
-    // Close modal and update UI
-    document.getElementById("authModal").style.display = "none";
-    updateUI();
-
-    alert("Login successful!");
-  } else {
-    alert("Invalid username or password!");
-  }
-}
-
-// Register function
-function register(username, password) {
-  // In a real application, this would be an API call to the server
-  // For demo purposes, we'll store in localStorage
-
-  // Get users from localStorage
-  const users = JSON.parse(localStorage.getItem("cloudCanvasUsers") || "[]");
-
-  // Check if username already exists
-  if (users.find((u) => u.username === username)) {
-    alert("Username already exists!");
-    return;
-  }
-
-  // Create new user
-  const newUser = {
-    id: Date.now().toString(),
-    username: username,
-    password: password,
-  };
-
-  // Add to users array
-  users.push(newUser);
-  localStorage.setItem("cloudCanvasUsers", JSON.stringify(users));
-
-  // Auto login after registration
-  currentUser = { id: newUser.id, username: newUser.username };
-  localStorage.setItem("cloudCanvasUser", JSON.stringify(currentUser));
-
-  // Close modal and update UI
-  document.getElementById("authModal").style.display = "none";
-  updateUI();
-
-  alert("Registration successful!");
-}
-
 // Logout function
 function logout() {
+  authService.logout();
   currentUser = null;
-  localStorage.removeItem("cloudCanvasUser");
   updateUI();
   alert("You have been logged out.");
 }

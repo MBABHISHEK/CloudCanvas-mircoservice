@@ -1,0 +1,231 @@
+const express = require("express");
+const multer = require("multer");
+const path = require("path");
+const fs = require("fs");
+const jwt = require("jsonwebtoken");
+const cors = require("cors");
+const mysql = require("mysql2/promise");
+
+const app = express();
+const PORT = process.env.PORT || 3002;
+const JWT_SECRET = process.env.JWT_SECRET || "your_jwt_secret_key_here";
+
+// Middleware
+app.use(cors());
+app.use(express.json());
+app.use("/uploads", express.static("uploads"));
+
+// MySQL connection pool
+const pool = mysql.createPool({
+  host: process.env.DB_HOST || "localhost",
+  user: process.env.DB_USER || "root",
+  password: process.env.DB_PASSWORD || "abhishek@2003@sql",
+  database: process.env.DB_NAME || "library_database",
+  waitForConnections: true,
+  connectionLimit: 10,
+  queueLimit: 0,
+});
+
+// Configure multer for file uploads
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    const uploadPath = "uploads/";
+    if (!fs.existsSync(uploadPath)) {
+      fs.mkdirSync(uploadPath, { recursive: true });
+    }
+    cb(null, uploadPath);
+  },
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
+    cb(null, uniqueSuffix + path.extname(file.originalname));
+  },
+});
+
+const upload = multer({
+  storage: storage,
+  limits: {
+    fileSize: 10 * 1024 * 1024, // 10MB limit
+  },
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype.startsWith("image/")) {
+      cb(null, true);
+    } else {
+      cb(new Error("Only image files are allowed!"), false);
+    }
+  },
+});
+
+// Authentication middleware
+const authenticateToken = async (req, res, next) => {
+  const authHeader = req.headers["authorization"];
+  const token = authHeader && authHeader.split(" ")[1];
+
+  if (!token) {
+    return res.status(401).json({ message: "Access token required" });
+  }
+
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET);
+    req.userId = decoded.userId;
+    next();
+  } catch (error) {
+    return res.status(403).json({ message: "Invalid token" });
+  }
+};
+
+// Routes
+app.post(
+  "/api/images/upload",
+  authenticateToken,
+  upload.single("image"),
+  async (req, res) => {
+    let connection;
+    try {
+      if (!req.file) {
+        return res.status(400).json({ message: "No file uploaded" });
+      }
+
+      connection = await pool.getConnection();
+
+      const [result] = await connection.execute(
+        `INSERT INTO images 
+            (filename, original_name, file_path, file_size, mime_type, user_id) 
+            VALUES (?, ?, ?, ?, ?, ?)`,
+        [
+          req.file.filename,
+          req.file.originalname,
+          req.file.path,
+          req.file.size,
+          req.file.mimetype,
+          req.userId,
+        ]
+      );
+
+      // Notify gallery service about new image
+      try {
+        await fetch("http://localhost:3003/api/gallery/images", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            imageId: result.insertId,
+            userId: req.userId,
+            title: req.body.title || "",
+            description: req.body.description || "",
+            tags: req.body.tags ? req.body.tags.split(",") : [],
+          }),
+        });
+      } catch (galleryError) {
+        console.warn("Failed to notify gallery service:", galleryError.message);
+      }
+
+      res.status(201).json({
+        message: "Image uploaded successfully",
+        image: {
+          id: result.insertId,
+          filename: req.file.filename,
+          originalName: req.file.originalname,
+          url: `/uploads/${req.file.filename}`,
+          size: req.file.size,
+          uploadedAt: new Date().toISOString(),
+        },
+      });
+    } catch (error) {
+      console.error("Upload error:", error);
+      res.status(500).json({ message: "Server error", error: error.message });
+    } finally {
+      if (connection) connection.release();
+    }
+  }
+);
+
+app.get("/api/images/my-images", authenticateToken, async (req, res) => {
+  try {
+    const [images] = await pool.execute(
+      `SELECT id, filename, original_name, file_path, file_size, 
+                    mime_type, is_public, uploaded_at 
+             FROM images 
+             WHERE user_id = ? 
+             ORDER BY uploaded_at DESC`,
+      [req.userId]
+    );
+
+    const imagesWithUrls = images.map((image) => ({
+      id: image.id,
+      filename: image.filename,
+      originalName: image.original_name,
+      url: `/uploads/${image.filename}`,
+      size: image.file_size,
+      uploadedAt: image.uploaded_at,
+      isPublic: image.is_public,
+    }));
+
+    res.json({ images: imagesWithUrls });
+  } catch (error) {
+    console.error("Get images error:", error);
+    res.status(500).json({ message: "Server error", error: error.message });
+  }
+});
+
+app.delete("/api/images/:id", authenticateToken, async (req, res) => {
+  let connection;
+  try {
+    connection = await pool.getConnection();
+
+    // Get image info first
+    const [images] = await connection.execute(
+      "SELECT * FROM images WHERE id = ? AND user_id = ?",
+      [req.params.id, req.userId]
+    );
+
+    if (images.length === 0) {
+      return res.status(404).json({ message: "Image not found" });
+    }
+
+    const image = images[0];
+
+    // Delete file from filesystem
+    try {
+      fs.unlinkSync(image.file_path);
+    } catch (fileError) {
+      console.warn("Could not delete file:", fileError.message);
+    }
+
+    // Delete from database
+    await connection.execute(
+      "DELETE FROM images WHERE id = ? AND user_id = ?",
+      [req.params.id, req.userId]
+    );
+
+    // Notify gallery service about deletion
+    try {
+      await fetch(`http://localhost:3003/api/gallery/images/${req.params.id}`, {
+        method: "DELETE",
+      });
+    } catch (galleryError) {
+      console.warn("Failed to notify gallery service:", galleryError.message);
+    }
+
+    res.json({ message: "Image deleted successfully" });
+  } catch (error) {
+    console.error("Delete error:", error);
+    res.status(500).json({ message: "Server error", error: error.message });
+  } finally {
+    if (connection) connection.release();
+  }
+});
+
+// Health check
+app.get("/health", async (req, res) => {
+  try {
+    await pool.execute("SELECT 1");
+    res.json({ status: "OK", service: "images" });
+  } catch (error) {
+    res.status(500).json({ status: "Error", service: "images" });
+  }
+});
+
+app.listen(PORT, () => {
+  console.log(`Image service running on port ${PORT}`);
+});

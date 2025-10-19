@@ -19,13 +19,71 @@
     <main class="main-content">
         <h1>Upload Image</h1>
         <p>Share your creativity with the world.</p>
-        <!-- Upload form would go here -->
+        
+        <div class="upload-form">
+            <form id="uploadForm" enctype="multipart/form-data">
+                <div class="form-group">
+                    <label for="imageFile">Select Image:</label>
+                    <input type="file" id="imageFile" name="image" accept="image/*" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="title">Title (optional):</label>
+                    <input type="text" id="title" name="title" placeholder="Enter image title">
+                </div>
+                
+                <div class="form-group">
+                    <label for="description">Description (optional):</label>
+                    <textarea id="description" name="description" placeholder="Enter image description"></textarea>
+                </div>
+                
+                <div class="form-group">
+                    <label for="tags">Tags (comma-separated, optional):</label>
+                    <input type="text" id="tags" name="tags" placeholder="nature, landscape, sunset">
+                </div>
+                
+                <button type="submit" class="btn btn-primary">Upload Image</button>
+            </form>
+            
+            <div id="uploadStatus" style="margin-top: 1rem;"></div>
+        </div>
     </main>
     
     <footer class="footer">
         <p>&copy; 2024 CloudCanvas. All rights reserved.</p>
     </footer>
     
+    <script src="../js/auth-service.js"></script>
+    <script src="../js/image-service.js"></script>
+    <script src="../js/gallery-service.js"></script>
     <script src="../js/script.js"></script>
+    <script>
+        document.getElementById('uploadForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const statusDiv = document.getElementById('uploadStatus');
+            const submitBtn = this.querySelector('button[type="submit"]');
+            
+            if (!authService.isAuthenticated()) {
+                statusDiv.innerHTML = '<p style="color: red;">Please login to upload images</p>';
+                return;
+            }
+            
+            const formData = new FormData(this);
+            submitBtn.disabled = true;
+            statusDiv.innerHTML = '<p>Uploading...</p>';
+            
+            const result = await imageService.uploadImage(formData);
+            
+            if (result.success) {
+                statusDiv.innerHTML = '<p style="color: green;">Image uploaded successfully!</p>';
+                this.reset();
+            } else {
+                statusDiv.innerHTML = `<p style="color: red;">Upload failed: ${result.error}</p>`;
+            }
+            
+            submitBtn.disabled = false;
+        });
+    </script>
 </body>
 </html>
