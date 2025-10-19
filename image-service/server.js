@@ -14,7 +14,7 @@ app.use(cors());
 app.use(express.json());
 app.use("/uploads", express.static("uploads"));
 
-// MySQL connection pool (single database)
+// MySQL connection pool
 const pool = mysql.createPool({
   host: process.env.DB_HOST || "localhost",
   user: process.env.DB_USER || "root",
@@ -65,7 +65,9 @@ const authenticateToken = async (req, res, next) => {
   }
 };
 
-// Routes
+// ------------------- Routes -------------------
+
+// Upload image
 app.post(
   "/api/images/upload",
   authenticateToken,
@@ -78,7 +80,7 @@ app.post(
       connection = await pool.getConnection();
 
       const [result] = await connection.execute(
-        `INSERT INTO images (filename, original_name, file_path, file_size, mime_type, user_id) VALUES (?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO images (filename, original_name, file_path, file_size, mime_type, user_id, is_public) VALUES (?, ?, ?, ?, ?, ?, ?)`,
         [
           req.file.filename,
           req.file.originalname,
@@ -86,39 +88,22 @@ app.post(
           req.file.size,
           req.file.mimetype,
           req.userId,
+          req.body.isPublic || 0, // allow setting public/private from frontend
         ]
       );
 
-      // Notify gallery service
-      try {
-        await fetch("http://localhost:3003/api/gallery/images", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            imageId: result.insertId,
-            userId: req.userId,
-            title: req.body.title || "",
-            description: req.body.description || "",
-            tags: req.body.tags ? req.body.tags.split(",") : [],
-          }),
-        });
-      } catch (galleryError) {
-        console.warn("Failed to notify gallery service:", galleryError.message);
-      }
-
-      res
-        .status(201)
-        .json({
-          message: "Image uploaded successfully",
-          image: {
-            id: result.insertId,
-            filename: req.file.filename,
-            originalName: req.file.originalname,
-            url: `/uploads/${req.file.filename}`,
-            size: req.file.size,
-            uploadedAt: new Date().toISOString(),
-          },
-        });
+      res.status(201).json({
+        message: "Image uploaded successfully",
+        image: {
+          id: result.insertId,
+          filename: req.file.filename,
+          originalName: req.file.originalname,
+          url: `/uploads/${req.file.filename}`,
+          size: req.file.size,
+          isPublic: req.body.isPublic || 0,
+          uploadedAt: new Date().toISOString(),
+        },
+      });
     } catch (error) {
       console.error("Upload error:", error);
       res.status(500).json({ message: "Server error", error: error.message });
@@ -128,18 +113,31 @@ app.post(
   }
 );
 
+// Get user's images (dashboard)
 app.get("/api/images/my-images", authenticateToken, async (req, res) => {
   try {
     const [images] = await pool.execute(
-      `SELECT id, filename, original_name, file_path, file_size, mime_type, is_public, uploaded_at FROM images WHERE user_id = ? ORDER BY uploaded_at DESC`,
+      `SELECT id, filename, original_name, file_size, mime_type, is_public, uploaded_at FROM images WHERE user_id = ? ORDER BY uploaded_at DESC`,
       [req.userId]
     );
+
+    const totalImages = images.length;
+    const publicImages = images.filter((img) => img.is_public).length;
+    const privateImages = totalImages - publicImages;
+    const storageUsed = images.reduce((acc, img) => acc + img.file_size, 0);
+
     res.json({
       images: images.map((img) => ({
         ...img,
         url: `/uploads/${img.filename}`,
         isPublic: img.is_public,
       })),
+      stats: {
+        total: totalImages,
+        public: publicImages,
+        private: privateImages,
+        storageUsed, // in bytes
+      },
     });
   } catch (error) {
     console.error("Get images error:", error);
@@ -147,6 +145,39 @@ app.get("/api/images/my-images", authenticateToken, async (req, res) => {
   }
 });
 
+// Get public images (gallery)
+app.get("/api/images/public", async (req, res) => {
+  try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 12;
+    const offset = (page - 1) * limit;
+
+    const [countResult] = await pool.execute(
+      "SELECT COUNT(*) as total FROM images WHERE is_public = 1"
+    );
+    const total = countResult[0].total;
+
+    const [images] = await pool.execute(
+      `SELECT id, filename, original_name, file_size, mime_type, uploaded_at FROM images WHERE is_public = 1 ORDER BY uploaded_at DESC LIMIT ? OFFSET ?`,
+      [limit, offset]
+    );
+
+    res.json({
+      images: images.map((img) => ({
+        ...img,
+        url: `/uploads/${img.filename}`,
+      })),
+      total,
+      page,
+      totalPages: Math.ceil(total / limit),
+    });
+  } catch (error) {
+    console.error("Get public images error:", error);
+    res.status(500).json({ message: "Server error", error: error.message });
+  }
+});
+
+// Delete image
 app.delete("/api/images/:id", authenticateToken, async (req, res) => {
   let connection;
   try {
@@ -162,15 +193,11 @@ app.delete("/api/images/:id", authenticateToken, async (req, res) => {
     try {
       fs.unlinkSync(image.file_path);
     } catch {}
+
     await connection.execute(
       "DELETE FROM images WHERE id = ? AND user_id = ?",
       [req.params.id, req.userId]
     );
-    try {
-      await fetch(`http://localhost:3003/api/gallery/images/${req.params.id}`, {
-        method: "DELETE",
-      });
-    } catch {}
     res.json({ message: "Image deleted successfully" });
   } catch (error) {
     console.error("Delete error:", error);
