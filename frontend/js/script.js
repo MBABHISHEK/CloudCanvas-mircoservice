@@ -24,16 +24,16 @@ function updateUI() {
     // User is logged in
     navLinks.innerHTML = `
             <a href="/">Home</a>
-            <a href="pages/gallery.html">Gallery</a>
+            <a href="/pages/gallery.html">Gallery</a>
             <span>Welcome, ${currentUser.username}</span>
-            <a href="pages/dashboard.html">Dashboard</a>
-            <a href="pages/upload.html">Upload</a>
+            <a href="/pages/dashboard.html">Dashboard</a>
+            <a href="/pages/upload.html">Upload</a>
             <a href="#" id="logoutLink">Logout</a>
         `;
 
     heroButtons.innerHTML = `
-            <a href="pages/upload.html" class="btn btn-primary">Upload Image</a>
-            <a href="pages/dashboard.html" class="btn btn-secondary">My Dashboard</a>
+            <a href="/pages/upload.html" class="btn btn-primary">Upload Image</a>
+            <a href="/pages/dashboard.html" class="btn btn-secondary">My Dashboard</a>
         `;
 
     // Add logout event listener
@@ -42,14 +42,14 @@ function updateUI() {
     // User is not logged in
     navLinks.innerHTML = `
             <a href="/">Home</a>
-            <a href="pages/gallery.html">Gallery</a>
+            <a href="/pages/gallery.html">Gallery</a>
             <a href="#" id="loginLink">Login</a>
             <a href="#" id="registerLink">Register</a>
         `;
 
     heroButtons.innerHTML = `
             <a href="#" id="getStartedLink" class="btn btn-primary">Get Started</a>
-            <a href="pages/gallery.html" class="btn btn-secondary">View Gallery</a>
+            <a href="/pages/gallery.html" class="btn btn-secondary">View Gallery</a>
         `;
 
     // Add authentication event listeners
@@ -64,6 +64,8 @@ function updateUI() {
       .addEventListener("click", showRegisterModal);
   }
 }
+
+// ... rest of the functions remain the same as in the previous version ...
 
 // Setup authentication modal
 function setupAuthModal() {
