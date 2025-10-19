@@ -2,14 +2,16 @@
 class AuthService {
   constructor() {
     this.baseURL = "http://localhost:3001/api";
-    this.token = localStorage.getItem("cloudCanvasToken");
+    this.token = localStorage.getItem("cloudCanvasToken") || null;
   }
 
+  // Save token to memory and localStorage
   setToken(token) {
     this.token = token;
     localStorage.setItem("cloudCanvasToken", token);
   }
 
+  // Get headers for authenticated requests
   getAuthHeaders() {
     return {
       "Content-Type": "application/json",
@@ -17,11 +19,13 @@ class AuthService {
     };
   }
 
+  // Register new user
   async register(userData) {
+    console.log(userData);
     try {
       const response = await fetch(`${this.baseURL}/auth/register`, {
         method: "POST",
-        headers: this.getAuthHeaders(),
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(userData),
       });
 
@@ -38,11 +42,12 @@ class AuthService {
     }
   }
 
+  // Login existing user
   async login(credentials) {
     try {
       const response = await fetch(`${this.baseURL}/auth/login`, {
         method: "POST",
-        headers: this.getAuthHeaders(),
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(credentials),
       });
 
@@ -59,6 +64,7 @@ class AuthService {
     }
   }
 
+  // Get currently logged-in user
   async getCurrentUser() {
     if (!this.token) return null;
 
@@ -79,11 +85,13 @@ class AuthService {
     }
   }
 
+  // Logout user
   logout() {
     this.token = null;
     localStorage.removeItem("cloudCanvasToken");
   }
 
+  // Check if user is logged in
   isAuthenticated() {
     return !!this.token;
   }

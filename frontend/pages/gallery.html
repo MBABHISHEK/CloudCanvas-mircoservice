@@ -1,31 +1,66 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Gallery - CloudCanvas</title>
-    <link rel="stylesheet" href="../css/style.css">
-</head>
-<body>
+    <link rel="stylesheet" href="../css/style.css" />
+  </head>
+  <body>
     <nav class="navbar">
-        <div class="nav-container">
-            <h1 class="nav-logo">CloudCanvas</h1>
-            <div class="nav-links" id="navLinks">
-                <!-- Will be populated by JavaScript -->
-            </div>
+      <div class="nav-container">
+        <h1 class="nav-logo">CloudCanvas</h1>
+        <div class="nav-links" id="navLinks">
+          <!-- Will be populated by JavaScript -->
         </div>
+      </div>
     </nav>
-    
+
     <main class="main-content">
-        <h1>Image Gallery</h1>
-        <p>Browse amazing images from our community.</p>
-        <!-- Gallery content would go here -->
+      <h1>Image Gallery</h1>
+      <p>Browse amazing images from our community.</p>
+
+      <div id="publicGalleryGrid" class="gallery-grid"></div>
     </main>
-    
+
     <footer class="footer">
-        <p>&copy; 2024 CloudCanvas. All rights reserved.</p>
+      <p>&copy; 2024 CloudCanvas. All rights reserved.</p>
     </footer>
-    
+
+    <script src="../js/auth-service.js"></script>
+    <script src="../js/image-service.js"></script>
+    <script src="../js/gallery-service.js"></script>
     <script src="../js/script.js"></script>
-</body>
+    <script>
+      // Load public images for the gallery
+      async function loadPublicGallery() {
+        const galleryDiv = document.getElementById("publicGalleryGrid");
+        if (!galleryDiv) return;
+
+        const result = await galleryService.getPublicImages();
+        if (result.success) {
+          galleryDiv.innerHTML = result.images
+            .map(
+              (img) => `
+                        <div class="gallery-card">
+                            <img src="http://localhost:3002/${img.file_path.replace(
+                              /\\/g,
+                              "/"
+                            )}" 
+                                 alt="${img.original_name}">
+                            <p>${img.original_name}</p>
+                        </div>
+                    `
+            )
+            .join("");
+        } else {
+          galleryDiv.innerHTML = `<p style="color:red;">Failed to load gallery: ${result.error}</p>`;
+        }
+      }
+
+      document.addEventListener("DOMContentLoaded", function () {
+        loadPublicGallery();
+      });
+    </script>
+  </body>
 </html>

@@ -26,21 +26,37 @@ app.get("/api/gallery/public", async (req, res) => {
     const limit = parseInt(req.query.limit) || 12;
     const offset = (page - 1) * limit;
 
+    // Validate numbers
+    if (limit < 1 || offset < 0) {
+      return res.status(400).json({ message: "Invalid pagination values" });
+    }
+
+    // Total count
     const [countResult] = await pool.execute(
       "SELECT COUNT(*) as total FROM image_metadata WHERE is_public = TRUE"
     );
     const total = countResult[0].total;
 
-    const [images] = await pool.execute(
-      `SELECT im.*, GROUP_CONCAT(it.tag) as tags FROM image_metadata im LEFT JOIN image_tags it ON im.id = it.image_id WHERE im.is_public = TRUE GROUP BY im.id ORDER BY im.created_at DESC LIMIT ? OFFSET ?`,
-      [limit, offset]
-    );
+    // Fetch images with tags, LIMIT/OFFSET interpolated
+    const [images] = await pool.query(`
+      SELECT im.*, GROUP_CONCAT(it.tag) as tags
+      FROM image_metadata im
+      LEFT JOIN image_tags it ON im.id = it.image_id
+      WHERE im.is_public = TRUE
+      GROUP BY im.id
+      ORDER BY im.created_at DESC
+      LIMIT ${limit} OFFSET ${offset}
+    `);
+
+    // Add proper URL field for each image
+    const imagesWithUrl = images.map((img) => ({
+      ...img,
+      tags: img.tags ? img.tags.split(",") : [],
+      url: `http://localhost:3002/${img.file_path.replace(/\\/g, "/")}`,
+    }));
 
     res.json({
-      images: images.map((img) => ({
-        ...img,
-        tags: img.tags ? img.tags.split(",") : [],
-      })),
+      images: imagesWithUrl,
       total,
       page,
       totalPages: Math.ceil(total / limit),
@@ -73,12 +89,10 @@ app.post("/api/gallery/images", async (req, res) => {
     }
 
     await connection.commit();
-    res
-      .status(201)
-      .json({
-        message: "Image metadata created",
-        image: { id: metadataId, imageId, userId, title, description, tags },
-      });
+    res.status(201).json({
+      message: "Image metadata created",
+      image: { id: metadataId, imageId, userId, title, description, tags },
+    });
   } catch (error) {
     if (connection) await connection.rollback();
     console.error("Create image metadata error:", error);

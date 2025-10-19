@@ -30,7 +30,6 @@ class ImageService {
       return { success: false, error: "Network error occurred" };
     }
   }
-
   async getUserImages() {
     try {
       const response = await fetch(`${this.baseURL}/images/my-images`, {
@@ -38,9 +37,17 @@ class ImageService {
       });
 
       const data = await response.json();
+      console.log(data);
+      console.log(response);
 
       if (response.ok) {
-        return { success: true, images: data.images };
+        // Convert file_path to a proper URL
+        const imagesWithUrl = data.images.map((img) => ({
+          ...img,
+          url: `http://localhost:3002/${img.file_path.replace(/\\/g, "/")}`,
+        }));
+        console.log(imagesWithUrl);
+        return { success: true, images: imagesWithUrl };
       } else {
         return { success: false, error: data.message };
       }
