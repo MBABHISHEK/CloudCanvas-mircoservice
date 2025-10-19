@@ -13,43 +13,11 @@ spec:
         app: nginx-gateway
     spec:
       containers:
-        - name: nginx
-          image: nginx:latest
+        - name: nginx-gateway
+          image: nginx-gateway:latest # built with nginx.conf
+          imagePullPolicy: Never
           ports:
             - containerPort: 80
-          volumeMounts:
-            - name: nginx-config
-              mountPath: /etc/nginx/nginx.conf
-              subPath: nginx.conf
-      volumes:
-        - name: nginx-config
-          configMap:
-            name: nginx-config
----
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: nginx-config
-data:
-  nginx.conf: |
-    events {}
-    http {
-      upstream user_service {
-        server user-service:3001;
-      }
-      upstream product_service {
-        server product-service:3002;
-      }
-      server {
-        listen 80;
-        location /api/users {
-          proxy_pass http://user_service;
-        }
-        location /api/products {
-          proxy_pass http://product_service;
-        }
-      }
-    }
 ---
 apiVersion: v1
 kind: Service
