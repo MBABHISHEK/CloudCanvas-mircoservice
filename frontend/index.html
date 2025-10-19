@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CloudCanvas - Share Your Images</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-container">
+            <h1 class="nav-logo">CloudCanvas</h1>
+            <div class="nav-links" id="navLinks">
+                <!-- Content will be populated by JavaScript -->
+            </div>
+        </div>
+    </nav>
+
+    <main class="main-content">
+        <div class="hero">
+            <div class="hero-content">
+                <h2>Share Your Creativity with the World</h2>
+                <p>Upload, manage, and share your images with the CloudCanvas community. Join thousands of creators today.</p>
+                <div class="hero-buttons" id="heroButtons">
+                    <!-- Content will be populated by JavaScript -->
+                </div>
+            </div>
+        </div>
+
+        <div class="features">
+            <h2 style="text-align: center; margin-bottom: 2rem;">Why Choose CloudCanvas?</h2>
+            <div class="feature-grid">
+                <div class="feature-card">
+                    <h3>🚀 Easy Upload</h3>
+                    <p>Upload your images in seconds with our intuitive interface.</p>
+                </div>
+                <div class="feature-card">
+                    <h3>🌍 Share Globally</h3>
+                    <p>Share your creations with the world or keep them private.</p>
+                </div>
+                <div class="feature-card">
+                    <h3>💾 Secure Storage</h3>
+                    <p>Your images are safely stored in our secure database.</p>
+                </div>
+                <div class="feature-card">
+                    <h3>📱 Responsive Design</h3>
+                    <p>Access your images from any device, anywhere.</p>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <footer class="footer">
+        <p>&copy; 2024 CloudCanvas. All rights reserved.</p>
+    </footer>
+
+    <!-- Authentication Modal -->
+    <div class="auth-modal" id="authModal">
+        <div class="auth-modal-content">
+            <span class="close-modal" id="closeModal">&times;</span>
+            <h2 id="authTitle">Login</h2>
+            <form class="auth-form" id="authForm">
+                <input type="text" id="username" placeholder="Username" required>
+                <input type="password" id="password" placeholder="Password" required>
+                <div id="confirmPasswordContainer" style="display: none;">
+                    <input type="password" id="confirmPassword" placeholder="Confirm Password">
+                </div>
+                <button type="submit" id="authButton">Login</button>
+            </form>
+            <div class="auth-switch">
+                <span id="authSwitchText">Don't have an account? </span>
+                <a id="authSwitchLink">Register</a>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/script.js"></script>
+</body>
+</html>
