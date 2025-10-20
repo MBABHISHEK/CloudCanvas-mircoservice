@@ -1,22 +1,25 @@
 // Main application script
 let currentUser = null;
 
-// Check if user is logged in on page load
-document.addEventListener("DOMContentLoaded", async function () {
+// Wait for DOM to load
+document.addEventListener("DOMContentLoaded", async () => {
+  // Check if user is authenticated
   if (typeof authService !== "undefined" && authService.isAuthenticated()) {
     currentUser = await authService.getCurrentUser();
   }
 
   updateUI();
-
-  if (currentUser && document.getElementById("userImagesGrid")) {
-    loadUserImages();
-  }
-
   setupAuthModal();
+
+  // Load dashboard images if logged in
+  if (currentUser) {
+    loadDashboardImages();
+  }
 });
 
-// Update UI based on authentication status
+// ---------------------
+// Update navigation & hero UI
+// ---------------------
 function updateUI() {
   const navLinks = document.getElementById("navLinks");
   const heroButtons = document.getElementById("heroButtons");
@@ -25,10 +28,10 @@ function updateUI() {
     if (currentUser) {
       navLinks.innerHTML = `
         <a href="../index.html">Home</a>
-        <a href="gallery.html">Gallery</a>
+        <a href="/pages/gallery.html">Gallery</a>
         <span>Welcome, ${currentUser.username}</span>
-        <a href="dashboard.html">Dashboard</a>
-        <a href="upload.html">Upload</a>
+        <a href="/pages/dashboard.html">Dashboard</a>
+        <a href="/pages/upload.html">Upload</a>
         <a href="#" id="logoutLink">Logout</a>
       `;
       const logoutLink = document.getElementById("logoutLink");
@@ -36,7 +39,7 @@ function updateUI() {
     } else {
       navLinks.innerHTML = `
         <a href="../index.html">Home</a>
-        <a href="gallery.html">Gallery</a>
+        <a href="/pages/gallery.html">Gallery</a>
         <a href="#" id="loginLink">Login</a>
         <a href="#" id="registerLink">Register</a>
       `;
@@ -66,7 +69,9 @@ function updateUI() {
   }
 }
 
-// Setup authentication modal
+// ---------------------
+// Auth modal setup
+// ---------------------
 function setupAuthModal() {
   const authModal = document.getElementById("authModal");
   if (!authModal) return;
@@ -97,7 +102,6 @@ function setupAuthModal() {
   if (authSwitchLink) {
     authSwitchLink.addEventListener("click", () => {
       isLoginMode = !isLoginMode;
-
       if (isLoginMode) {
         authTitle.textContent = "Login";
         authButton.textContent = "Login";
@@ -113,17 +117,15 @@ function setupAuthModal() {
         if (confirmPasswordContainer)
           confirmPasswordContainer.style.display = "block";
       }
-
       if (authForm) authForm.reset();
     });
   }
 
   if (authForm) {
-    authForm.addEventListener("submit", async function (event) {
+    authForm.addEventListener("submit", async (event) => {
       event.preventDefault();
       const username = document.getElementById("username")?.value;
       const password = document.getElementById("password")?.value;
-
       if (!username || !password) return;
 
       if (isLoginMode) {
@@ -134,9 +136,7 @@ function setupAuthModal() {
           updateUI();
           if (document.getElementById("userImagesGrid")) loadUserImages();
           alert("Login successful!");
-        } else {
-          alert("Login failed: " + result.error);
-        }
+        } else alert("Login failed: " + result.error);
       } else {
         const confirmPassword =
           document.getElementById("confirmPassword")?.value;
@@ -151,15 +151,15 @@ function setupAuthModal() {
           updateUI();
           if (document.getElementById("userImagesGrid")) loadUserImages();
           alert("Registration successful!");
-        } else {
-          alert("Registration failed: " + result.error);
-        }
+        } else alert("Registration failed: " + result.error);
       }
     });
   }
 }
 
-// Show login modal
+// ---------------------
+// Show modals
+// ---------------------
 function showLoginModal() {
   const authModal = document.getElementById("authModal");
   if (!authModal) return;
@@ -172,7 +172,6 @@ function showLoginModal() {
   authModal.style.display = "flex";
 }
 
-// Show register modal
 function showRegisterModal() {
   const authModal = document.getElementById("authModal");
   if (!authModal) return;
@@ -185,7 +184,9 @@ function showRegisterModal() {
   authModal.style.display = "flex";
 }
 
-// Logout function
+// ---------------------
+// Logout
+// ---------------------
 function logout() {
   authService.logout();
   currentUser = null;
@@ -193,27 +194,110 @@ function logout() {
   alert("You have been logged out.");
 }
 
-// Load user images for dashboard
-async function loadUserImages() {
-  const grid = document.getElementById("userImagesGrid");
-  if (!grid || !currentUser) return;
+// ---------------------
+// Load user images and stats
+// ---------------------
+// Render dashboard images with stats
+async function loadDashboardImages() {
+  if (!currentUser) return;
 
-  const result = await imageService.getUserImages();
+  const grid = document.getElementById("userImagesGrid");
+  const totalImagesSpan = document.getElementById("totalImages");
+  const publicImagesSpan = document.getElementById("publicImages");
+  const privateImagesSpan = document.getElementById("privateImages");
+  const storageUsedSpan = document.getElementById("storageUsed");
+
+  const result = await imageService.getUserImagesWithStats();
+  console.log(result);
   if (result.success) {
-    grid.innerHTML = result.images
-      .map(
-        (img) => `
-      <div class="image-card">
-        <img src="${img.url}" alt="${img.title || "User Image"}">
-        <div class="image-info">
-          <h3>${img.title || "Untitled"}</h3>
-          <p>${img.description || ""}</p>
+    totalImagesSpan.textContent = result.stats.total;
+    publicImagesSpan.textContent = result.stats.public;
+    privateImagesSpan.textContent = result.stats.private;
+    storageUsedSpan.textContent = (
+      result.stats.storageUsed /
+      (1024 * 1024)
+    ).toFixed(2); // MB
+
+    grid.innerHTML = "";
+    result.images.forEach((img) => {
+      const div = document.createElement("div");
+      div.classList.add("gallery-item");
+      div.innerHTML = `
+      <div class="image-container">
+        <img class="gallery-image" src="${img.url}" alt="${
+        img.original_name
+      }" />
+       <div class="image-overlay">
+          <a href="${
+            img.url
+          }" download class="btn btn-secondary">To View Full Image</a>
+            <button class="btn btn-danger btn-delete" data-id="${
+              img.id
+            }">Delete</button>
+          </div>
         </div>
-      </div>
-    `
-      )
-      .join("");
+        <div class="image-info">
+        <p class="image-name">${img.original_name}</p>
+         <p class="image-visibility ${img.is_public ? "public" : "private"}">
+            ${img.is_public ? "Public" : "Private"}
+      `;
+      grid.appendChild(div);
+    });
+    document.querySelectorAll(".btn-delete").forEach((btn) => {
+      btn.addEventListener("click", async (e) => {
+        const imageId = e.target.dataset.id;
+        if (confirm("Are you sure you want to delete this image?")) {
+          const delResult = await imageService.deleteImage(imageId);
+          if (delResult.success) {
+            alert("Image deleted successfully");
+            loadDashboardImages(); // Refresh dashboard after deletion
+          } else {
+            alert("Failed to delete image: " + delResult.error);
+          }
+        }
+      });
+    });
   } else {
     grid.innerHTML = `<p style="color:red;">Failed to load images: ${result.error}</p>`;
   }
 }
+
+// Render gallery images (all users, public + private)
+async function loadGalleryImages() {
+  const grid = document.getElementById("galleryGrid");
+  if (!grid) return;
+
+  const result = await imageService.getAllImages();
+  if (result.success) {
+    grid.innerHTML = "";
+    result.images.forEach((img) => {
+      const div = document.createElement("div");
+      div.classList.add("gallery-item");
+      div.innerHTML = `
+      <div class="image-container">
+      <img class="gallery-image" src="${img.url}" alt="${img.original_name}" />
+      <div class="image-overlay">
+      <a href="${
+        img.url
+      }" download class="btn btn-secondary">To View Full Image</a>
+        </div>
+        <p class="image-name">${img.original_name}</p>
+         <p class="image-visibility ${img.is_public ? "Private" : "Public"}">
+            ${img.is_public ? "Private" : "Public"}
+      `;
+      grid.appendChild(div);
+    });
+  } else {
+    grid.innerHTML = `<p style="color:red;">Failed to load images: ${result.error}</p>`;
+  }
+}
+
+// On DOM load
+document.addEventListener("DOMContentLoaded", async () => {
+  if (currentUser && document.getElementById("userImagesGrid")) {
+    await loadDashboardImages();
+  }
+  if (document.getElementById("galleryGrid")) {
+    await loadGalleryImages();
+  }
+});

@@ -1,36 +1,54 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Dashboard - CloudCanvas</title>
-    <link rel="stylesheet" href="../css/style.css">
-</head>
-<body>
+    <link rel="stylesheet" href="../css/style.css" />
+  </head>
+  <body>
     <nav class="navbar">
-        <div class="nav-container">
-            <h1 class="nav-logo">CloudCanvas</h1>
-            <div class="nav-links" id="navLinks">
-                <!-- Will be populated by JavaScript -->
-            </div>
-        </div>
+      <div class="nav-container">
+        <h1 class="nav-logo">CloudCanvas</h1>
+        <div class="nav-links" id="navLinks"></div>
+      </div>
     </nav>
-    
-    <main class="main-content">
-        <h1>My Dashboard</h1>
-        <div id="userImagesGrid" class="gallery-grid"></div>
 
-        <p>Manage your images and account settings.</p>
-        <!-- Dashboard content would go here -->
+    <main class="main-content">
+      <h1>My Dashboard</h1>
+
+      <!-- Dashboard Stats -->
+      <div class="dashboard-stats">
+        <div class="stat-card">
+          <h3>Total Images</h3>
+          <div class="stat-number" id="totalImages">0</div>
+        </div>
+        <div class="stat-card">
+          <h3>Public Images</h3>
+          <div class="stat-number" id="publicImages">0</div>
+        </div>
+        <div class="stat-card">
+          <h3>Private Images</h3>
+          <div class="stat-number" id="privateImages">0</div>
+        </div>
+        <div class="stat-card">
+          <h3>Storage Used (MB)</h3>
+          <div class="stat-number" id="storageUsed">0</div>
+        </div>
+      </div>
+
+      <!-- User Images Grid -->
+      <div class="user-images">
+        <div id="userImagesGrid" class="image-grid"></div>
+      </div>
     </main>
-    
+
     <footer class="footer">
-        <p>&copy; 2024 CloudCanvas. All rights reserved.</p>
+      <p>&copy; 2024 CloudCanvas. All rights reserved.</p>
     </footer>
-    
+
     <script src="../js/auth-service.js"></script>
-<script src="../js/image-service.js"></script>
-<script src="../js/gallery-service.js"></script>
-<script src="../js/script.js"></script>
-</body>
+    <script src="../js/image-service.js"></script>
+    <script src="../js/script.js"></script>
+  </body>
 </html>

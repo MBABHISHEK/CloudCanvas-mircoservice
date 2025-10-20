@@ -120,7 +120,7 @@ app.get("/api/images/my-images", authenticateToken, async (req, res) => {
       `SELECT id, filename, original_name, file_size, mime_type, is_public, uploaded_at FROM images WHERE user_id = ? ORDER BY uploaded_at DESC`,
       [req.userId]
     );
-
+    console.log(images);
     const totalImages = images.length;
     const publicImages = images.filter((img) => img.is_public).length;
     const privateImages = totalImages - publicImages;
@@ -148,28 +148,29 @@ app.get("/api/images/my-images", authenticateToken, async (req, res) => {
 // Get public images (gallery)
 app.get("/api/images/public", async (req, res) => {
   try {
-    const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 12;
-    const offset = (page - 1) * limit;
-
-    const [countResult] = await pool.execute(
-      "SELECT COUNT(*) as total FROM images WHERE is_public = 1"
-    );
-    const total = countResult[0].total;
-
+    // Get all public images with uploader info
     const [images] = await pool.execute(
-      `SELECT id, filename, original_name, file_size, mime_type, uploaded_at FROM images WHERE is_public = 1 ORDER BY uploaded_at DESC LIMIT ? OFFSET ?`,
-      [limit, offset]
+      `SELECT 
+         i.id,
+         i.filename,
+         i.original_name,
+         i.file_path,
+         i.file_size,
+         i.mime_type,
+         i.uploaded_at,
+         u.username AS uploaded_by
+       FROM images i
+       JOIN users u ON i.user_id = u.id
+       WHERE i.is_public = 1
+       ORDER BY i.uploaded_at DESC`
     );
 
     res.json({
       images: images.map((img) => ({
         ...img,
-        url: `/uploads/${img.filename}`,
+        url: `http://localhost:3002${img.file_path.replace(/\\/g, "/")}`, // full URL
       })),
-      total,
-      page,
-      totalPages: Math.ceil(total / limit),
+      total: images.length,
     });
   } catch (error) {
     console.error("Get public images error:", error);
