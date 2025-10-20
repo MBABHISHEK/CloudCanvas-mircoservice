@@ -1,6 +1,6 @@
 class ImageService {
   constructor() {
-    this.baseURL = "http://localhost:3002/api";
+    this.baseURL = "http://localhost:30083/api";
   }
 
   getAuthHeaders() {
@@ -22,7 +22,7 @@ class ImageService {
         ...img,
         url: img.url.startsWith("http")
           ? img.url
-          : `http://localhost:3002${img.url.startsWith("/") ? "" : "/"}${
+          : `http://localhost:30083${img.url.startsWith("/") ? "" : "/"}${
               img.url
             }`,
       }));
@@ -57,7 +57,7 @@ class ImageService {
 
       const images = data.images.map((img) => ({
         ...img,
-        url: `http://localhost:3002/${img.file_path.replace(/\\/g, "/")}`,
+        url: `http://localhost:30083/${img.file_path.replace(/\\/g, "/")}`,
       }));
       return { success: true, images };
     } catch (err) {
